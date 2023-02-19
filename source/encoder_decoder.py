@@ -62,11 +62,11 @@ class EncoderDecoderTextDataset(Dataset):
             output_lengths = [min(len(ex), max_output_length) for ex in outputs]
 
             inputs = [tokenizer.encode(
-                ex, add_special_tokens=False, max_length=max_input_length, pad_to_max_length=True)
+                ex, add_special_tokens=False, max_length=max_input_length, pad_to_max_length=True,truncation = True)
                 for ex in inputs]
 
             outputs = [tokenizer.encode(
-                ex, add_special_tokens=False, max_length=max_output_length, pad_to_max_length=True)
+                ex, add_special_tokens=False, max_length=max_output_length, pad_to_max_length=True , truncation = True)
                 for ex in outputs]
 
             self.examples = {
@@ -178,6 +178,11 @@ def main():
         help="Evaluate at each train logging step.",
     )
     parser.add_argument(
+        "--test_data_file",
+        type=str,
+        required=False,
+    )
+    parser.add_argument(
         "--gradient_accumulation_steps",
         type=int,
         default=1,
@@ -248,6 +253,12 @@ def main():
         help="Continue training from the last checkpoint.",
     )
     parser.add_argument(
+        "--continue_new_out_dir",
+        default="XX",
+        type=str,
+        help="if we need a new dir to save the fine-tune",
+    )
+    parser.add_argument(
         "--save_steps",
         type=int,
         default=-1,
@@ -315,6 +326,8 @@ def main():
     # Load the models
     if args.continue_training:
         args.model_name_or_path = args.out_dir
+        if args.continue_new_out_dir is not "XX":
+            args.out_dir = args.continue_new_out_dir
     # Delete the current results file
     else:
         eval_results_file = os.path.join(args.out_dir, "eval_results.txt")
@@ -331,10 +344,10 @@ def main():
     args.block_size = tokenizer.max_len_single_sentence
     logger.info(f"Training/evaluation parameters {args}")
 
-    eval_dataset = None
-    if args.do_eval or args.eval_during_train:
-        eval_dataset = EncoderDecoderTextDataset(
-            tokenizer, args, file_path=args.eval_data_file, block_size=args.block_size)
+    # eval_dataset = None
+    # if args.do_eval or args.eval_during_train:
+    #     eval_dataset = EncoderDecoderTextDataset(
+    #         tokenizer, args, file_path=args.eval_data_file, block_size=args.block_size)
 
     # Add special tokens (if loading a model before fine-tuning)
     if args.do_train and not args.continue_training:
@@ -347,6 +360,11 @@ def main():
         model.resize_token_embeddings(len(tokenizer))
 
     args.pad_token_id = tokenizer.pad_token_id
+
+    eval_dataset = None
+    if args.do_eval or args.eval_during_train:
+        eval_dataset = EncoderDecoderTextDataset(
+            tokenizer, args, file_path=args.eval_data_file, block_size=args.block_size)
 
     # resize_token_embeddings for Bart doesn't work if the model is already on the device
     args.device = device
@@ -385,6 +403,10 @@ def main():
         # Good practice: save your training arguments together with the trained model
         torch.save(args, os.path.join(args.out_dir, "training_args.bin"))
 
+        ####################################################################
+        #我现在需要finetune这个基于ROC的数据集或者重新训练，现在需要改变模型的存储方式#
+        ####################################################################
+        
         # Load a trained model and vocabulary that you have fine-tuned
         tokenizer, model = init_model(
             args.out_dir, device=args.device, do_lower_case=args.do_lower_case, args=args
@@ -394,6 +416,8 @@ def main():
 
     # Evaluation
     results = {}
+
+
     if args.do_eval:
         checkpoint = args.out_dir
         logger.info(f"Evaluate the following checkpoint: {checkpoint}")
@@ -405,7 +429,11 @@ def main():
         )
 
         model.to(args.device)
+
+        
         result = evaluate(eval_dataset, args, model, prefix=prefix, loss_fnc=get_loss)
+
+
         results.update(result)
 
     return results

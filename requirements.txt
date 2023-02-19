@@ -5,11 +5,10 @@ requests==2.26.0
 rouge-score==0.0.4
 sacremoses==0.0.45
 scipy==1.7.0
-sentence-transformers==2.0.0
+sentence-transformers
 sentencepiece==0.1.96
 tensorboardX==2.4
 tokenizers==0.8.0rc4
 torch==1.9.1
-torchvision==0.10.0
 tqdm==4.62.3
-transformers==3.0.0
+transformers

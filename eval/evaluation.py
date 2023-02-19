@@ -7,6 +7,7 @@ import re
 import math
 import nltk
 import argparse
+import os
 
 from scipy.stats import kendalltau 
 from tqdm import tqdm
@@ -109,8 +110,8 @@ def clean_output(gold, predictions):
     """
 
     label = gold.replace("<eos>", "").strip()
-    labels = [int(id_[2:-1]) for id_ in label.split()]
-    
+    # labels = [int(id_[2:-1]) for id_ in label.split()]
+    labels = [int(id_[0]) for id_ in label.split()]
     # handle cases when output is empty
     if len(predictions) == 0:
         return labels, []
@@ -133,7 +134,8 @@ def evaluate(filename):
     
     Returns: None
     """
-
+    result_file = os.path.split(filename)[0]
+    result_file = os.path.join(result_file,"eval_results.txt")
     acc, PMR, kendall_score, LCS, rouge = 0, 0, 0, 0, 0
     total, total_sents = 0, 0
     
@@ -173,13 +175,18 @@ def evaluate(filename):
             for i in range(min(len(gold), len(predictions))):
                 if gold[i] == predictions[i]:
                     acc += 1
-                
-    print(f" {err} sample(s) were not processed")
-    print(" Accuracy: {:.6f}".format(acc / total_sents))
-    print(" PMR: {:.6f}".format(PMR / total))
-    print(" Kendall's Tau: {:.6f}".format(kendall_score / total))
-    print(" LCS: {:.6f}".format(LCS / total_sents))
-    print(" Rouge-S: {:.6f}".format(rouge / total))
+    with open(result_file, "a") as writer:
+        print(f" {err} sample(s) were not processed")
+        writer.write(" Accuracy: {:.6f}\n".format(acc / total_sents))
+        print(" Accuracy: {:.6f}".format(acc / total_sents))
+        writer.write(" PMR: {:.6f}\n".format(PMR / total))
+        print(" PMR: {:.6f}".format(PMR / total))
+        writer.write(" Kendall's Tau: {:.6f}\n".format(kendall_score / total))
+        print(" Kendall's Tau: {:.6f}".format(kendall_score / total))
+        writer.write(" LCS: {:.6f}\n".format(LCS / total_sents))
+        print(" LCS: {:.6f}".format(LCS / total_sents))
+        writer.write(" Rouge-S: {:.6f}\n".format(rouge / total))
+        print(" Rouge-S: {:.6f}".format(rouge / total))
 
 def main():
     parser = argparse.ArgumentParser()

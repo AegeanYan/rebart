@@ -107,31 +107,38 @@ def main() -> None:
     special_tokens += extra_specials
 
 
-    with open(args.out_file, "w") as f_out:
-        for input, output in tqdm.tqdm(examples):
-            try:
-                preds = generate_conditional(
-                    tokenizer,
-                    model,
-                    args,
-                    input,
-                    device,
-                )
+    # with open(args.out_file, "w") as f_out:
+    #     for input, output in tqdm.tqdm(examples):
+    #         try:
+    #             preds = generate_conditional(
+    #                 tokenizer,
+    #                 model,
+    #                 args,
+    #                 input,
+    #                 device,
+    #             )
 
-                # Remove any word that has "]" or "[" in it
-                preds = [re.sub(r"(\w*\])", "", pred) for pred in preds]
-                preds = [re.sub(r"(\[\w*)", "", pred) for pred in preds]
-                preds = [re.sub(" +", " ", pred).strip() for pred in preds]
+    #             # Remove any word that has "]" or "[" in it
+    #             preds = [re.sub(r"(\w*\])", "", pred) for pred in preds]
+    #             preds = [re.sub(r"(\[\w*)", "", pred) for pred in preds]
+    #             preds = [re.sub(" +", " ", pred).strip() for pred in preds]
 
-            except Exception as exp:
-                logger.info(exp)
-                preds = []
+    #         except Exception as exp:
+    #             logger.info(exp)
+    #             preds = []
 
-            f_out.write(
-                json.dumps({"input": input, "gold": output, "predictions": preds})
-                + "\n"
-            )
+    #         f_out.write(
+    #             json.dumps({"input": input, "gold": output, "predictions": preds})
+    #             + "\n"
+    #         )
 
+    preds = generate_conditional(
+    tokenizer,
+    model,
+    args,
+    [examples[i][0] for i in range(5)],
+    device,
+    )
 
 def generate_conditional(tokenizer, model, args, input, device):
     """

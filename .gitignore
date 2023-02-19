@@ -3,3 +3,11 @@ data/
 
 
 *.pyc
+*.sh
+*.txt
+*.csv
+outputs/
+runs/
+data/
+*.tgz
+

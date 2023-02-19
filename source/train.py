@@ -206,7 +206,7 @@ def train(args, train_dataset, model, tokenizer, loss_fnc=get_loss, eval_dataset
             )
 
             logger.info(
-                "  Continuing training from checkpoint, will skip to saved global_step"
+                "  Continuing training from checkpoint, will skip to saved global_step:%d" %global_step
             )
             logger.info(f"  Continuing training from epoch {epochs_trained}")
             logger.info(f"  Continuing training from global step {global_step}")
@@ -346,7 +346,7 @@ def evaluate(eval_dataset, args, model, prefix="", loss_fnc=get_loss):
     }
 
     output_eval_file = os.path.join(eval_out_dir, prefix, "eval_results.txt")
-    with open(output_eval_file, "w") as writer:
+    with open(output_eval_file, "a") as writer:
         logger.info(f"***** Eval results {prefix} *****")
         for key in sorted(result.keys()):
             logger.info(f"  {key} = {result[key]}")
