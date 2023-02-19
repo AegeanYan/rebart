@@ -8,13 +8,23 @@ import torch
 import logging
 import argparse
 
-logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-    datefmt="%m/%d/%Y %H:%M:%S",
-    level=logging.INFO,
-)
+logger = logging.getLogger("__name__")
 
-logger = logging.getLogger(__name__)
+handler1 = logging.StreamHandler()
+handler2 = logging.FileHandler(filename="abs.log")
+
+logger.setLevel(logging.DEBUG)
+handler1.setLevel(logging.INFO)
+handler2.setLevel(logging.WARNING)
+
+formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
+handler1.setFormatter(formatter)
+handler2.setFormatter(formatter)
+
+logger.addHandler(handler1)
+logger.addHandler(handler2)
+
+
 
 from common import init_model, load_data
 
@@ -100,53 +110,79 @@ def main() -> None:
 
     examples = load_data(args.in_file, args.task)
 
-    logger.info(examples[:5])
+    # logger.info(examples[:5])
 
     special_tokens = ["[shuffled]", "[orig]", "<eos>"]
     extra_specials = [f"<S{i}>" for i in range(args.max_length)]
     special_tokens += extra_specials
 
 
-    # with open(args.out_file, "w") as f_out:
-    #     for input, output in tqdm.tqdm(examples):
-    #         try:
-    #             preds = generate_conditional(
-    #                 tokenizer,
-    #                 model,
-    #                 args,
-    #                 input,
-    #                 device,
-    #             )
+    with open(args.out_file, "w") as f_out:
+        example_len = len(examples)
+        batch_size_ = 32
+        for i in tqdm.tqdm(range(int(example_len/batch_size_) + 1)):
+            try:
+                if i == int(example_len/batch_size_):
+                    preds = generate_conditional(
+                        tokenizer,
+                        model,
+                        args,
+                        examples[i*batch_size_:-1],
+                        device,
+                    )
+                else:
+                    preds = generate_conditional(
+                        tokenizer,
+                        model,
+                        args,
+                        examples[i*batch_size_:(i+1)*batch_size_],
+                        device,
+                    )
+                
+                # Remove any word that has "]" or "[" in it
+                # preds = [[re.sub(r"(\w*\])", "", pred) for pred in sentence] for sentence in preds]
+                # preds = [[re.sub(r"(\[\w*)", "", pred) for pred in sentence] for sentence in preds]
+                # preds = [[re.sub(" +", " ", pred).strip() for pred in sentence] for sentence in preds]
+                print(preds)
+            except Exception as exp:
+                logger.info(exp)
+                preds = []
+            
+            if i == int(example_len/batch_size_):
+                for j in range(i*batch_size_, example_len):
+                    input,output = examples[j]
+                    f_out.write(
+                        json.dumps({"input": input, "gold": output, "predictions": preds[j-i*batch_size_]})
+                        + "\n"
+                    )
+            else:
+                for j in range(i*batch_size_, (i+1)*batch_size_):
+                    print(i)
+                    print(j)
+                    input,output = examples[j]
+                    f_out.write(
+                        json.dumps({"input": input, "gold": output, "predictions": preds[j-i*batch_size_]})
+                        + "\n"
+                    )
 
-    #             # Remove any word that has "]" or "[" in it
-    #             preds = [re.sub(r"(\w*\])", "", pred) for pred in preds]
-    #             preds = [re.sub(r"(\[\w*)", "", pred) for pred in preds]
-    #             preds = [re.sub(" +", " ", pred).strip() for pred in preds]
-
-    #         except Exception as exp:
-    #             logger.info(exp)
-    #             preds = []
-
-    #         f_out.write(
-    #             json.dumps({"input": input, "gold": output, "predictions": preds})
-    #             + "\n"
-    #         )
-
-    preds = generate_conditional(
-    tokenizer,
-    model,
-    args,
-    [examples[i][0] for i in range(5)],
-    device,
-    )
+    # preds = generate_conditional(
+    # tokenizer,
+    # model,
+    # args,
+    # [examples[i][0] for i in range(5)],
+    # device,
+    # )
 
 def generate_conditional(tokenizer, model, args, input, device):
     """
     Generate a sequence with models like Bart and T5
     """
-    input_ids = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(input))
-    decoder_start_token_id = input_ids[-1]
-    input_ids = torch.tensor([input_ids]).to(device)
+    not_pad_encoded = tokenizer(input)
+    encoded = tokenizer(input, return_tensors='pt', padding=True)
+    input_ids = encoded['input_ids'].to(device)
+    decoder_start_token_id = not_pad_encoded['input_ids'][0][-1]
+    # logger.warning(decoder_start_token_id)
+    
     max_length = args.max_length
 
 
@@ -166,10 +202,10 @@ def generate_conditional(tokenizer, model, args, input, device):
         num_return_sequences=1 #max(1, args.beams)
     )
 
-
+    
     preds = [tokenizer.decode(
         output, skip_special_tokens=False, clean_up_tokenization_spaces=False) for output in outputs]
-
+    print(preds)
 
     return preds
 
