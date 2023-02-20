@@ -28,10 +28,10 @@ for i in tqdm(range(90000)):
         perm = np.random.permutation(5).tolist()
         tmp_dict = {}
         tmp_dict["orig_sents"] = []
-        tmp_dict["shuf_sents"] = [' ',' ',' ',' ',' ']
-        for i in range(5):
-            tmp_dict["orig_sents"].append(str(perm[i]))
-            tmp_dict["shuf_sents"][i] = tokens[perm.index(i)]
+        tmp_dict["shuf_sents"] = []
+        for k in range(5):
+            tmp_dict["orig_sents"].append(str(perm[k]))
+            tmp_dict["shuf_sents"].append(tokens[perm.index(k)])
         jsonlines.Writer.write(file,tmp_dict)
     
 file.close()

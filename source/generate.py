@@ -119,15 +119,15 @@ def main() -> None:
 
     with open(args.out_file, "w") as f_out:
         example_len = len(examples)
-        batch_size_ = 32
-        for i in tqdm.tqdm(range(int(example_len/batch_size_) + 1)):
+        batch_size_ = 128
+        for i in tqdm.tqdm(range(int((example_len - 1)/batch_size_) + 1)):
             try:
-                if i == int(example_len/batch_size_):
+                if i == int((example_len - 1)/batch_size_):
                     preds = generate_conditional(
                         tokenizer,
                         model,
                         args,
-                        examples[i*batch_size_:-1],
+                        examples[i*batch_size_:],
                         device,
                     )
                 else:
@@ -140,28 +140,26 @@ def main() -> None:
                     )
                 
                 # Remove any word that has "]" or "[" in it
-                # preds = [[re.sub(r"(\w*\])", "", pred) for pred in sentence] for sentence in preds]
-                # preds = [[re.sub(r"(\[\w*)", "", pred) for pred in sentence] for sentence in preds]
-                # preds = [[re.sub(" +", " ", pred).strip() for pred in sentence] for sentence in preds]
-                print(preds)
+                preds = [re.sub(r"(\w*\])", "", pred) for pred in preds]
+                preds = [re.sub(r"(\[\w*)", "", pred) for pred in preds] 
+                preds = [re.sub(" +", " ", pred).strip() for pred in preds] 
             except Exception as exp:
                 logger.info(exp)
                 preds = []
             
-            if i == int(example_len/batch_size_):
+            if i == int((example_len-1)/batch_size_):
+                
                 for j in range(i*batch_size_, example_len):
                     input,output = examples[j]
                     f_out.write(
-                        json.dumps({"input": input, "gold": output, "predictions": preds[j-i*batch_size_]})
+                        json.dumps({"input": input, "gold": output, "predictions": [preds[j-i*batch_size_]]})
                         + "\n"
                     )
             else:
                 for j in range(i*batch_size_, (i+1)*batch_size_):
-                    print(i)
-                    print(j)
                     input,output = examples[j]
                     f_out.write(
-                        json.dumps({"input": input, "gold": output, "predictions": preds[j-i*batch_size_]})
+                        json.dumps({"input": input, "gold": output, "predictions": [preds[j-i*batch_size_]]})
                         + "\n"
                     )
 
@@ -177,17 +175,21 @@ def generate_conditional(tokenizer, model, args, input, device):
     """
     Generate a sequence with models like Bart and T5
     """
-    not_pad_encoded = tokenizer(input)
+    input = [input[i][0] for i in range(len(input))]
+
+    not_pad_encoded = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(input[0]))
+
     encoded = tokenizer(input, return_tensors='pt', padding=True)
     input_ids = encoded['input_ids'].to(device)
-    decoder_start_token_id = not_pad_encoded['input_ids'][0][-1]
+    decoder_start_token_id = not_pad_encoded[-1]
     # logger.warning(decoder_start_token_id)
     
     max_length = args.max_length
 
 
     outputs = model.generate(
-        input_ids,
+        input_ids=input_ids,
+        attention_mask=encoded['attention_mask'].to(device),
         do_sample=args.beams == 0,
         max_length=max_length,
         min_length=5,
@@ -202,10 +204,8 @@ def generate_conditional(tokenizer, model, args, input, device):
         num_return_sequences=1 #max(1, args.beams)
     )
 
-    
     preds = [tokenizer.decode(
         output, skip_special_tokens=False, clean_up_tokenization_spaces=False) for output in outputs]
-    print(preds)
 
     return preds
 
